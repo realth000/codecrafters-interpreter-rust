@@ -1,6 +1,6 @@
-use crate::errors::AppResult;
+use crate::errors::{AppError, AppResult};
 
-use self::tokens::Tokens;
+use self::tokens::{IgnoredToken, Token};
 
 mod tokens;
 
@@ -14,8 +14,16 @@ pub struct Lexer {
     /// Current scan position.
     pos: usize,
 
+    /// Current line index.
+    ///
+    /// I want to remember the column position at the same time, but leave it now.
+    line_idx: usize,
+
     /// Produced tokens.
-    tokens: Vec<Tokens>,
+    tokens: Vec<Token>,
+
+    /// Has tokenize error or not.
+    has_error: bool,
 }
 
 impl Lexer {
@@ -27,7 +35,9 @@ impl Lexer {
             input,
             length,
             pos: 0,
+            line_idx: 1,
             tokens: vec![],
+            has_error: false,
         }
     }
 
@@ -35,8 +45,26 @@ impl Lexer {
         self.tokens.clear();
 
         while let Some(ch) = self.peek() {
-            let token: Tokens = Tokens::try_from((ch, self.pos))?;
-            self.tokens.push(token);
+            if let Some(t) = Token::from_char(&ch) {
+                if let Token::Ignored(IgnoredToken::LineBreak) = t {
+                    self.has_error = true;
+                    self.line_idx += 1;
+                }
+                if !t.ignored() {
+                    self.tokens.push(t);
+                }
+                self.advance();
+                continue;
+            }
+
+            self.has_error = true;
+            eprintln!(
+                "{}",
+                AppError::UnexpectedChar {
+                    line: self.line_idx,
+                    token: ch.to_string(),
+                }
+            );
             self.advance();
         }
 
@@ -51,15 +79,19 @@ impl Lexer {
         println!("EOF  null");
     }
 
+    pub fn has_error(&self) -> bool {
+        self.has_error
+    }
+
     fn ended(&self) -> bool {
         self.pos >= self.length
     }
 
-    fn peek(&self) -> Option<&'_ char> {
+    fn peek(&self) -> Option<char> {
         if self.ended() {
             return None;
         }
-        self.input.get(self.pos)
+        self.input.get(self.pos).map(|x| x.to_owned())
     }
 
     fn advance(&mut self) {

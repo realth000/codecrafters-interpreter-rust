@@ -27,6 +27,18 @@ fn main() -> AppResult<()> {
             let mut lexer = Lexer::new(input);
             lexer.tokenize().context("tokenize error")?;
             lexer.print_tokens();
+            if lexer.has_error() {
+                std::process::exit(65);
+            }
+            return Ok(());
+        }
+        "tokenize-text" => {
+            let mut lexer = Lexer::new(filename.to_string());
+            lexer.tokenize().context("tokenize error")?;
+            lexer.print_tokens();
+            if lexer.has_error() {
+                std::process::exit(65);
+            }
             return Ok(());
         }
         _ => {

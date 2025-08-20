@@ -1,7 +1,47 @@
-use crate::errors::AppError;
+pub(super) trait Tokened: Sized {
+    /// Get the token info.
+    fn info(&self) -> (&'static str, &'static str, Option<String>);
+
+    /// Try parse from character.
+    fn from_char(s: &char) -> Option<Self>;
+}
+
+pub enum Token {
+    SingleCharacter(SingleCharToken),
+    Ignored(IgnoredToken),
+}
+
+impl Token {
+    pub(super) fn info(&self) -> (&'static str, &'static str, Option<String>) {
+        match self {
+            Token::SingleCharacter(t) => t.info(),
+            Token::Ignored(_) => unreachable!("no info provided on ignored tokens"),
+        }
+    }
+
+    pub(super) fn from_char(s: &char) -> Option<Self> {
+        if let Some(v) = SingleCharToken::from_char(s) {
+            return Some(Self::SingleCharacter(v));
+        }
+
+        if let Some(v) = IgnoredToken::from_char(s) {
+            return Some(Self::Ignored(v));
+        }
+
+        None
+    }
+
+    /// Should ignore the character in AST or not.
+    pub(super) fn ignored(&self) -> bool {
+        match self {
+            Token::SingleCharacter(..) => false,
+            Token::Ignored(..) => true,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
-pub enum Tokens {
+pub(super) enum SingleCharToken {
     /// `(`
     LeftParen,
 
@@ -36,47 +76,55 @@ pub enum Tokens {
     Semicolon,
 }
 
-impl Tokens {
-    pub fn info(&self) -> (&'static str, &'static str, Option<String>) {
+impl Tokened for SingleCharToken {
+    fn info(&self) -> (&'static str, &'static str, Option<String>) {
         match self {
-            Tokens::LeftParen => ("LEFT_PAREN", "(", None),
-            Tokens::RightParen => ("RIGHT_PAREN", ")", None),
-            Tokens::LeftBrace => ("LEFT_BRACE", "{", None),
-            Tokens::RightBrace => ("RIGHT_BRACE", "}", None),
-            Tokens::Star => ("STAR", "*", None),
-            Tokens::Dot => ("DOT", ".", None),
-            Tokens::Comma => ("COMMA", ",", None),
-            Tokens::Plus => ("PLUS", "+", None),
-            Tokens::Minus => ("MINUS", "-", None),
-            Tokens::Slash => ("SLASH", "/", None),
-            Tokens::Semicolon => ("SEMICOLON", ";", None),
+            SingleCharToken::LeftParen => ("LEFT_PAREN", "(", None),
+            SingleCharToken::RightParen => ("RIGHT_PAREN", ")", None),
+            SingleCharToken::LeftBrace => ("LEFT_BRACE", "{", None),
+            SingleCharToken::RightBrace => ("RIGHT_BRACE", "}", None),
+            SingleCharToken::Star => ("STAR", "*", None),
+            SingleCharToken::Dot => ("DOT", ".", None),
+            SingleCharToken::Comma => ("COMMA", ",", None),
+            SingleCharToken::Plus => ("PLUS", "+", None),
+            SingleCharToken::Minus => ("MINUS", "-", None),
+            SingleCharToken::Slash => ("SLASH", "/", None),
+            SingleCharToken::Semicolon => ("SEMICOLON", ";", None),
+        }
+    }
+
+    fn from_char(s: &char) -> Option<Self> {
+        match s {
+            '(' => Some(Self::LeftParen),
+            ')' => Some(Self::RightParen),
+            '{' => Some(Self::LeftBrace),
+            '}' => Some(Self::RightBrace),
+            '*' => Some(Self::Star),
+            '.' => Some(Self::Dot),
+            ',' => Some(Self::Comma),
+            '+' => Some(Self::Plus),
+            '-' => Some(Self::Minus),
+            '/' => Some(Self::Slash),
+            ';' => Some(Self::Semicolon),
+            _ => None,
         }
     }
 }
 
-/// Parse character into `Tokens`.
-///
-/// If token is invalid, return `AppError::UnknownToken` with given position at `usize`.
-impl<'a> TryFrom<(&'a char, usize)> for Tokens {
-    type Error = AppError;
+pub(super) enum IgnoredToken {
+    /// `\n`
+    LineBreak,
+}
 
-    fn try_from(value: (&'a char, usize)) -> Result<Self, Self::Error> {
-        match value.0 {
-            '(' => Ok(Self::LeftParen),
-            ')' => Ok(Self::RightParen),
-            '{' => Ok(Self::LeftBrace),
-            '}' => Ok(Self::RightBrace),
-            '*' => Ok(Self::Star),
-            '.' => Ok(Self::Dot),
-            ',' => Ok(Self::Comma),
-            '+' => Ok(Self::Plus),
-            '-' => Ok(Self::Minus),
-            '/' => Ok(Self::Slash),
-            ';' => Ok(Self::Semicolon),
-            v => Err(AppError::UnknownToken {
-                pos: value.1,
-                token: v.to_string(),
-            }),
+impl Tokened for IgnoredToken {
+    fn info(&self) -> (&'static str, &'static str, Option<String>) {
+        unreachable!("no info provided on ignored tokens")
+    }
+
+    fn from_char(s: &char) -> Option<Self> {
+        match s {
+            '\n' => Some(Self::LineBreak),
+            _ => None,
         }
     }
 }

@@ -169,6 +169,12 @@ pub(super) enum IgnoredToken {
     ///
     /// Holding the comment length till the end of current line.
     Comment(usize),
+
+    /// `\t`
+    Tab,
+
+    /// ' '
+    Space,
 }
 
 impl Tokened for IgnoredToken {
@@ -179,6 +185,8 @@ impl Tokened for IgnoredToken {
     fn from_char_slice(s: &[char]) -> Option<Self> {
         match (s.get(0), s.get(1)) {
             (Some('\n'), _) => Some(Self::LineBreak),
+            (Some('\t'), _) => Some(Self::Tab),
+            (Some(' '), _) => Some(Self::Space),
             (Some('/'), Some('/')) => Some(Self::Comment(
                 s.iter().position(|x| x == &'\n').unwrap_or_else(|| s.len()),
             )),
@@ -190,6 +198,8 @@ impl Tokened for IgnoredToken {
         match self {
             IgnoredToken::LineBreak => 1,
             IgnoredToken::Comment(len) => len.to_owned(),
+            IgnoredToken::Tab => 1,
+            IgnoredToken::Space => 1,
         }
     }
 }

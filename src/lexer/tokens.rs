@@ -103,6 +103,12 @@ pub(super) enum SingleCharToken {
 
     /// `!`
     Bang,
+
+    /// `<`
+    Less,
+
+    /// `>`
+    Greater,
 }
 
 impl Tokened for SingleCharToken {
@@ -121,6 +127,8 @@ impl Tokened for SingleCharToken {
             SingleCharToken::Semicolon => ("SEMICOLON", ";", None),
             SingleCharToken::Assign => ("EQUAL", "=", None),
             SingleCharToken::Bang => ("BANG", "!", None),
+            SingleCharToken::Less => ("LESS", "<", None),
+            SingleCharToken::Greater => ("GREATER", ">", None),
         }
     }
 
@@ -140,6 +148,8 @@ impl Tokened for SingleCharToken {
             ';' => Some(Self::Semicolon),
             '=' => Some(Self::Assign),
             '!' => Some(Self::Bang),
+            '<' => Some(Self::Less),
+            '>' => Some(Self::Greater),
             _ => None,
         }
     }
@@ -180,6 +190,12 @@ pub(super) enum MultiCharToken {
 
     /// `!=`
     BangEqual,
+
+    /// `<=`
+    LessEqual,
+
+    /// `>=`
+    GreaterEqual,
 }
 
 impl Tokened for MultiCharToken {
@@ -187,6 +203,8 @@ impl Tokened for MultiCharToken {
         match self {
             MultiCharToken::EqualEqual => ("EQUAL_EQUAL", "==", None),
             MultiCharToken::BangEqual => ("BANG_EQUAL", "!=", None),
+            MultiCharToken::LessEqual => ("LESS_EQUAL", "<=", None),
+            MultiCharToken::GreaterEqual => ("GREATER_EQUAL", ">=", None),
         }
     }
 
@@ -194,6 +212,8 @@ impl Tokened for MultiCharToken {
         match (s.get(0), s.get(1)) {
             (Some('='), Some('=')) => Some(Self::EqualEqual),
             (Some('!'), Some('=')) => Some(Self::BangEqual),
+            (Some('<'), Some('=')) => Some(Self::LessEqual),
+            (Some('>'), Some('=')) => Some(Self::GreaterEqual),
             _ => None,
         }
     }

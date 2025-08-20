@@ -17,6 +17,7 @@ pub enum Token {
     Ignored(IgnoredToken),
     String(StringToken),
     Number(NumberToken),
+    Identifier(IdentifierToken),
 }
 
 impl Token {
@@ -27,6 +28,7 @@ impl Token {
             Token::Ignored(_) => unreachable!("no info provided on ignored tokens"),
             Token::String(t) => t.info(),
             Token::Number(t) => t.info(),
+            Token::Identifier(t) => t.info(),
         }
     }
 
@@ -41,6 +43,10 @@ impl Token {
 
         if let Some(v) = NumberToken::from_char_slice(s, line)? {
             return Ok(Some(Self::Number(v)));
+        }
+
+        if let Some(v) = IdentifierToken::from_char_slice(s, line)? {
+            return Ok(Some(Self::Identifier(v)));
         }
 
         // Multi characters
@@ -67,6 +73,7 @@ impl Token {
             Token::Ignored(..) => true,
             Token::String(..) => false,
             Token::Number(..) => false,
+            Token::Identifier(..) => false,
         }
     }
 
@@ -77,6 +84,7 @@ impl Token {
             Token::Ignored(v) => v.length(),
             Token::String(v) => v.length(),
             Token::Number(v) => v.length(),
+            Token::Identifier(v) => v.length(),
         }
     }
 }
@@ -417,5 +425,41 @@ impl Tokened for NumberToken {
             Some((l, _)) => self.integer_length + 1 + l.len(),
             None => self.integer_length,
         }
+    }
+}
+
+pub(super) struct IdentifierToken(String);
+
+impl Tokened for IdentifierToken {
+    fn info(&self) -> (&'static str, String, Option<String>) {
+        ("IDENTIFIER", self.0.clone(), None)
+    }
+
+    fn from_char_slice(s: &[char], _: usize) -> AppResult<Option<Self>> {
+        if s.is_empty() {
+            return Ok(None);
+        }
+
+        let chs = s
+            .iter()
+            .take_while(|x| {
+                ((&'a' <= x) && (x <= &&'z'))
+                    || ((&'A' <= x) && (x <= &&'Z'))
+                    || ((&'0' <= x) && (x <= &&'9'))
+                    || x == &&'_'
+            })
+            .map(|x| x.to_owned())
+            .collect::<Vec<_>>();
+
+        // TODO: Check the first character is number or not before moving forward.
+        if !chs.is_empty() && !chs[0].is_digit(10) {
+            Ok(Some(Self(chs.into_iter().collect())))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn length(&self) -> usize {
+        self.0.len()
     }
 }

@@ -3,11 +3,15 @@ pub(super) trait Tokened: Sized {
     fn info(&self) -> (&'static str, &'static str, Option<String>);
 
     /// Try parse from character.
-    fn from_char(s: &char) -> Option<Self>;
+    fn from_char_slice(s: &[char]) -> Option<Self>;
+
+    /// Get the characters count of current token.
+    fn length(&self) -> usize;
 }
 
 pub enum Token {
     SingleCharacter(SingleCharToken),
+    MultiCharToken(MultiCharToken),
     Ignored(IgnoredToken),
 }
 
@@ -15,16 +19,26 @@ impl Token {
     pub(super) fn info(&self) -> (&'static str, &'static str, Option<String>) {
         match self {
             Token::SingleCharacter(t) => t.info(),
+            Token::MultiCharToken(t) => t.info(),
             Token::Ignored(_) => unreachable!("no info provided on ignored tokens"),
         }
     }
 
-    pub(super) fn from_char(s: &char) -> Option<Self> {
-        if let Some(v) = SingleCharToken::from_char(s) {
+    pub(super) fn try_consume(s: &[char]) -> Option<Self> {
+        if s.is_empty() {
+            return None;
+        }
+
+        // Multi characters
+        if let Some(v) = MultiCharToken::from_char_slice(s) {
+            return Some(Self::MultiCharToken(v));
+        }
+
+        if let Some(v) = SingleCharToken::from_char_slice(s) {
             return Some(Self::SingleCharacter(v));
         }
 
-        if let Some(v) = IgnoredToken::from_char(s) {
+        if let Some(v) = IgnoredToken::from_char_slice(s) {
             return Some(Self::Ignored(v));
         }
 
@@ -35,7 +49,16 @@ impl Token {
     pub(super) fn ignored(&self) -> bool {
         match self {
             Token::SingleCharacter(..) => false,
+            Token::MultiCharToken(..) => false,
             Token::Ignored(..) => true,
+        }
+    }
+
+    pub(super) fn length(&self) -> usize {
+        match self {
+            Token::SingleCharacter(v) => v.length(),
+            Token::MultiCharToken(v) => v.length(),
+            Token::Ignored(v) => v.length(),
         }
     }
 }
@@ -74,6 +97,9 @@ pub(super) enum SingleCharToken {
 
     /// `;`
     Semicolon,
+
+    /// `=`
+    Assign,
 }
 
 impl Tokened for SingleCharToken {
@@ -90,10 +116,12 @@ impl Tokened for SingleCharToken {
             SingleCharToken::Minus => ("MINUS", "-", None),
             SingleCharToken::Slash => ("SLASH", "/", None),
             SingleCharToken::Semicolon => ("SEMICOLON", ";", None),
+            SingleCharToken::Assign => ("EQUAL", "=", None),
         }
     }
 
-    fn from_char(s: &char) -> Option<Self> {
+    fn from_char_slice(s: &[char]) -> Option<Self> {
+        let s = s.get(0)?;
         match s {
             '(' => Some(Self::LeftParen),
             ')' => Some(Self::RightParen),
@@ -106,8 +134,14 @@ impl Tokened for SingleCharToken {
             '-' => Some(Self::Minus),
             '/' => Some(Self::Slash),
             ';' => Some(Self::Semicolon),
+            '=' => Some(Self::Assign),
             _ => None,
         }
+    }
+
+    fn length(&self) -> usize {
+        // Single character token always only have 1 character.
+        1
     }
 }
 
@@ -121,10 +155,41 @@ impl Tokened for IgnoredToken {
         unreachable!("no info provided on ignored tokens")
     }
 
-    fn from_char(s: &char) -> Option<Self> {
+    fn from_char_slice(s: &[char]) -> Option<Self> {
+        let s = s.get(0)?;
         match s {
             '\n' => Some(Self::LineBreak),
             _ => None,
         }
+    }
+
+    fn length(&self) -> usize {
+        // Till now, all ignored tokens have 1 character.
+        1
+    }
+}
+
+pub(super) enum MultiCharToken {
+    /// `==`
+    EqualEqual,
+}
+
+impl Tokened for MultiCharToken {
+    fn info(&self) -> (&'static str, &'static str, Option<String>) {
+        match self {
+            MultiCharToken::EqualEqual => ("EQUAL_EQUAL", "==", None),
+        }
+    }
+
+    fn from_char_slice(s: &[char]) -> Option<Self> {
+        match (s.get(0), s.get(1)) {
+            (Some('='), Some('=')) => Some(Self::EqualEqual),
+            _ => None,
+        }
+    }
+
+    fn length(&self) -> usize {
+        // Till now, all multiple charaters token have 2 characters.
+        2
     }
 }

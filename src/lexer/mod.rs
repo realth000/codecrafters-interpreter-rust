@@ -45,15 +45,15 @@ impl Lexer {
         self.tokens.clear();
 
         while let Some(ch) = self.peek() {
-            if let Some(t) = Token::from_char(&ch) {
+            if let Some(t) = Token::try_consume(&self.input[self.pos..]) {
                 if let Token::Ignored(IgnoredToken::LineBreak) = t {
                     self.has_error = true;
                     self.line_idx += 1;
                 }
+                self.advance(t.length());
                 if !t.ignored() {
                     self.tokens.push(t);
                 }
-                self.advance();
                 continue;
             }
 
@@ -65,7 +65,7 @@ impl Lexer {
                     token: ch.to_string(),
                 }
             );
-            self.advance();
+            self.advance(1);
         }
 
         Ok(())
@@ -94,7 +94,7 @@ impl Lexer {
         self.input.get(self.pos).map(|x| x.to_owned())
     }
 
-    fn advance(&mut self) {
-        self.pos += 1;
+    fn advance(&mut self, step: usize) {
+        self.pos += step;
     }
 }

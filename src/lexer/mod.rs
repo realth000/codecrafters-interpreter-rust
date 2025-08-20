@@ -47,7 +47,6 @@ impl Lexer {
         while let Some(ch) = self.peek() {
             if let Some(t) = Token::try_consume(&self.input[self.pos..]) {
                 if let Token::Ignored(IgnoredToken::LineBreak) = t {
-                    self.has_error = true;
                     self.line_idx += 1;
                 }
                 self.advance(t.length());

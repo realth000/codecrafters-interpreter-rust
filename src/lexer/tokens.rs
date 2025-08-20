@@ -34,12 +34,12 @@ impl Token {
             return Some(Self::MultiCharToken(v));
         }
 
-        if let Some(v) = SingleCharToken::from_char_slice(s) {
-            return Some(Self::SingleCharacter(v));
-        }
-
         if let Some(v) = IgnoredToken::from_char_slice(s) {
             return Some(Self::Ignored(v));
+        }
+
+        if let Some(v) = SingleCharToken::from_char_slice(s) {
+            return Some(Self::SingleCharacter(v));
         }
 
         None
@@ -163,6 +163,12 @@ impl Tokened for SingleCharToken {
 pub(super) enum IgnoredToken {
     /// `\n`
     LineBreak,
+
+    /// `//`
+    ///
+    ///
+    /// Holding the comment length till the end of current line.
+    Comment(usize),
 }
 
 impl Tokened for IgnoredToken {
@@ -171,16 +177,20 @@ impl Tokened for IgnoredToken {
     }
 
     fn from_char_slice(s: &[char]) -> Option<Self> {
-        let s = s.get(0)?;
-        match s {
-            '\n' => Some(Self::LineBreak),
+        match (s.get(0), s.get(1)) {
+            (Some('\n'), _) => Some(Self::LineBreak),
+            (Some('/'), Some('/')) => Some(Self::Comment(
+                s.iter().position(|x| x == &'\n').unwrap_or_else(|| s.len()),
+            )),
             _ => None,
         }
     }
 
     fn length(&self) -> usize {
-        // Till now, all ignored tokens have 1 character.
-        1
+        match self {
+            IgnoredToken::LineBreak => 1,
+            IgnoredToken::Comment(len) => len.to_owned(),
+        }
     }
 }
 

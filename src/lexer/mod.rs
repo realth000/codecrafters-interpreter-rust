@@ -45,26 +45,30 @@ impl Lexer {
         self.tokens.clear();
 
         while let Some(ch) = self.peek() {
-            if let Some(t) = Token::try_consume(&self.input[self.pos..]) {
-                if let Token::Ignored(IgnoredToken::LineBreak) = t {
-                    self.line_idx += 1;
+            match Token::try_consume(&self.input[self.pos..], self.line_idx)? {
+                Some(t) => {
+                    if let Token::Ignored(IgnoredToken::LineBreak) = t {
+                        self.line_idx += 1;
+                    }
+                    self.advance(t.length());
+                    if !t.ignored() {
+                        self.tokens.push(t);
+                    }
+                    continue;
                 }
-                self.advance(t.length());
-                if !t.ignored() {
-                    self.tokens.push(t);
+                None => {
+                    // Unknown token.
+                    self.has_error = true;
+                    eprintln!(
+                        "{}",
+                        AppError::UnexpectedChar {
+                            line: self.line_idx,
+                            token: ch.to_string(),
+                        }
+                    );
+                    self.advance(1);
                 }
-                continue;
             }
-
-            self.has_error = true;
-            eprintln!(
-                "{}",
-                AppError::UnexpectedChar {
-                    line: self.line_idx,
-                    token: ch.to_string(),
-                }
-            );
-            self.advance(1);
         }
 
         Ok(())

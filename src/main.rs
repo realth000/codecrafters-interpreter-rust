@@ -2,11 +2,20 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 
-fn main() {
+use anyhow::Context;
+use anyhow::Ok;
+
+use self::errors::AppResult;
+use self::lexer::Lexer;
+
+mod errors;
+mod lexer;
+
+fn main() -> AppResult<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
         writeln!(io::stderr(), "Usage: {} tokenize <filename>", args[0]).unwrap();
-        return;
+        return Ok(());
     }
 
     let command = &args[1];
@@ -14,20 +23,15 @@ fn main() {
 
     match command.as_str() {
         "tokenize" => {
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
-                String::new()
-            });
-
-            if !file_contents.is_empty() {
-                panic!("Scanner not implemented");
-            } else {
-                println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
-            }
+            let input = fs::read_to_string(filename).context("failed to read file")?;
+            let mut lexer = Lexer::new(input);
+            lexer.tokenize().context("tokenize error")?;
+            lexer.print_tokens();
+            return Ok(());
         }
         _ => {
             writeln!(io::stderr(), "Unknown command: {}", command).unwrap();
-            return;
+            return Ok(());
         }
     }
 }

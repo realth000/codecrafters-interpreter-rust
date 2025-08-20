@@ -16,6 +16,7 @@ pub enum Token {
     MultiCharToken(MultiCharToken),
     Ignored(IgnoredToken),
     String(StringToken),
+    Number(NumberToken),
 }
 
 impl Token {
@@ -25,6 +26,7 @@ impl Token {
             Token::MultiCharToken(t) => t.info(),
             Token::Ignored(_) => unreachable!("no info provided on ignored tokens"),
             Token::String(t) => t.info(),
+            Token::Number(t) => t.info(),
         }
     }
 
@@ -35,6 +37,10 @@ impl Token {
 
         if let Some(v) = StringToken::from_char_slice(s, line)? {
             return Ok(Some(Self::String(v)));
+        }
+
+        if let Some(v) = NumberToken::from_char_slice(s, line)? {
+            return Ok(Some(Self::Number(v)));
         }
 
         // Multi characters
@@ -60,6 +66,7 @@ impl Token {
             Token::MultiCharToken(..) => false,
             Token::Ignored(..) => true,
             Token::String(..) => false,
+            Token::Number(..) => false,
         }
     }
 
@@ -69,6 +76,7 @@ impl Token {
             Token::MultiCharToken(v) => v.length(),
             Token::Ignored(v) => v.length(),
             Token::String(v) => v.length(),
+            Token::Number(v) => v.length(),
         }
     }
 }
@@ -290,5 +298,124 @@ impl Tokened for StringToken {
 
     fn length(&self) -> usize {
         self.0.len() + 2
+    }
+}
+
+/// Number in lox.
+///
+/// Valid formats:
+///
+/// * 123
+/// * 123.0
+///
+/// Invalid formats:
+///
+/// * .123 => parse started after the `.`
+/// * 123. => parse finshed before the `.`
+pub(super) struct NumberToken {
+    integer: u32,
+
+    /// The length of integer part.
+    integer_length: usize,
+
+    /// The deciaml part contains of the original value `string` and calculated number value `usize`.
+    decimal: Option<(String, u32)>,
+}
+
+impl Tokened for NumberToken {
+    fn info(&self) -> (&'static str, String, Option<String>) {
+        let mut value = self.integer.to_string();
+        match &self.decimal {
+            Some(v) => value.push_str(format!(".{}", v.0).as_str()),
+            None => { /* Do nothing*/ }
+        }
+
+        let r = match &self.decimal {
+            Some(v) => format!("{}.{}", self.integer, v.1),
+            None => format!("{}.0", self.integer),
+        };
+
+        ("NUMBER", value, Some(r))
+    }
+
+    fn from_char_slice(s: &[char], _: usize) -> AppResult<Option<Self>> {
+        if s.is_empty() || !s[0].is_digit(10) {
+            return Ok(None);
+        }
+
+        // The first character is integer.
+        // Parse the integer part.
+        let raw_integer_chars = s
+            .iter()
+            .take_while(|x| x.is_digit(10))
+            .map(|x| x.to_digit(10).unwrap())
+            .collect::<Vec<_>>();
+        let integer = raw_integer_chars
+            .iter()
+            .rev()
+            .enumerate()
+            .map(|(idx, i)| i * 10_u32.pow(idx as u32))
+            .fold(0, |acc, x| acc + x);
+        let mut decimal_it = s.iter().skip(raw_integer_chars.len());
+        match decimal_it.next() {
+            Some(v) => {
+                if v == &'.' {
+                    // May have decimal parts.
+                    let raw_decimal_chars = decimal_it
+                        .take_while(|x| x.is_digit(10))
+                        .map(|x| x.to_digit(10).unwrap())
+                        .collect::<Vec<_>>();
+                    if raw_decimal_chars.is_empty() {
+                        // No decimal part, the `.` after integer part is another token.
+                        return Ok(Some(NumberToken {
+                            integer,
+                            integer_length: raw_integer_chars.len(),
+                            decimal: None,
+                        }));
+                    } else {
+                        // Have deciaml part. the `.` after integer part is part of number.
+                        let decimal_value = raw_decimal_chars
+                            .iter()
+                            .rev()
+                            .enumerate()
+                            .map(|(idx, i)| i * 10_u32.pow(idx as u32))
+                            .fold(0, |acc, x| acc + x);
+                        let decimal_string = raw_decimal_chars
+                            .iter()
+                            .map(|x| x.to_string())
+                            .collect::<String>();
+
+                        return Ok(Some(NumberToken {
+                            integer,
+                            integer_length: raw_integer_chars.len(),
+                            decimal: Some((decimal_string, decimal_value)),
+                        }));
+                    }
+                } else {
+                    // Only have integer part.
+                    return Ok(Some(NumberToken {
+                        integer,
+                        integer_length: raw_integer_chars.len(),
+                        decimal: None,
+                    }));
+                }
+            }
+            None => {
+                // Reach the end of input.
+                // No decimal part, the `.` after integer part is another token.
+                return Ok(Some(NumberToken {
+                    integer,
+                    integer_length: raw_integer_chars.len(),
+                    decimal: None,
+                }));
+            }
+        }
+    }
+
+    fn length(&self) -> usize {
+        match &self.decimal {
+            Some((l, _)) => self.integer_length + 1 + l.len(),
+            None => self.integer_length,
+        }
     }
 }

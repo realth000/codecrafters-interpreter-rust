@@ -100,6 +100,9 @@ pub(super) enum SingleCharToken {
 
     /// `=`
     Assign,
+
+    /// `!`
+    Bang,
 }
 
 impl Tokened for SingleCharToken {
@@ -117,6 +120,7 @@ impl Tokened for SingleCharToken {
             SingleCharToken::Slash => ("SLASH", "/", None),
             SingleCharToken::Semicolon => ("SEMICOLON", ";", None),
             SingleCharToken::Assign => ("EQUAL", "=", None),
+            SingleCharToken::Bang => ("BANG", "!", None),
         }
     }
 
@@ -135,6 +139,7 @@ impl Tokened for SingleCharToken {
             '/' => Some(Self::Slash),
             ';' => Some(Self::Semicolon),
             '=' => Some(Self::Assign),
+            '!' => Some(Self::Bang),
             _ => None,
         }
     }
@@ -172,18 +177,23 @@ impl Tokened for IgnoredToken {
 pub(super) enum MultiCharToken {
     /// `==`
     EqualEqual,
+
+    /// `!=`
+    BangEqual,
 }
 
 impl Tokened for MultiCharToken {
     fn info(&self) -> (&'static str, &'static str, Option<String>) {
         match self {
             MultiCharToken::EqualEqual => ("EQUAL_EQUAL", "==", None),
+            MultiCharToken::BangEqual => ("BANG_EQUAL", "!=", None),
         }
     }
 
     fn from_char_slice(s: &[char]) -> Option<Self> {
         match (s.get(0), s.get(1)) {
             (Some('='), Some('=')) => Some(Self::EqualEqual),
+            (Some('!'), Some('=')) => Some(Self::BangEqual),
             _ => None,
         }
     }

@@ -18,6 +18,7 @@ pub enum Token {
     String(StringToken),
     Number(NumberToken),
     Identifier(IdentifierToken),
+    Keyword(KeywordToken),
 }
 
 impl Token {
@@ -29,12 +30,17 @@ impl Token {
             Token::String(t) => t.info(),
             Token::Number(t) => t.info(),
             Token::Identifier(t) => t.info(),
+            Token::Keyword(t) => t.info(),
         }
     }
 
     pub(super) fn try_consume(s: &[char], line: usize) -> AppResult<Option<Self>> {
         if s.is_empty() {
             return Ok(None);
+        }
+
+        if let Some(v) = KeywordToken::from_char_slice(s, line)? {
+            return Ok(Some(Self::Keyword(v)));
         }
 
         if let Some(v) = StringToken::from_char_slice(s, line)? {
@@ -74,6 +80,7 @@ impl Token {
             Token::String(..) => false,
             Token::Number(..) => false,
             Token::Identifier(..) => false,
+            Token::Keyword(..) => false,
         }
     }
 
@@ -85,6 +92,7 @@ impl Token {
             Token::String(v) => v.length(),
             Token::Number(v) => v.length(),
             Token::Identifier(v) => v.length(),
+            Token::Keyword(v) => v.length(),
         }
     }
 }
@@ -461,5 +469,157 @@ impl Tokened for IdentifierToken {
 
     fn length(&self) -> usize {
         self.0.len()
+    }
+}
+
+pub(super) enum KeywordToken {
+    /// `and`
+    KAnd,
+
+    /// `class`
+    KClass,
+
+    /// `else`
+    KElse,
+
+    /// `false`
+    KFalse,
+
+    /// `for`
+    KFor,
+
+    /// `fun`
+    KFun,
+
+    /// `if`
+    KIf,
+
+    /// `nil`
+    KNil,
+
+    /// `or`
+    KOr,
+
+    /// `print`
+    KPrint,
+
+    /// `return`
+    KReturn,
+
+    /// `super`
+    KSuper,
+
+    /// `this`
+    KThis,
+
+    /// `true`
+    KTrue,
+
+    /// `var`
+    KVar,
+
+    /// `While`
+    KWhile,
+}
+
+impl Tokened for KeywordToken {
+    fn info(&self) -> (&'static str, String, Option<String>) {
+        match self {
+            KeywordToken::KAnd => ("AND", "and".into(), None),
+            KeywordToken::KClass => ("CLASS", "class".into(), None),
+            KeywordToken::KElse => ("ELSE", "else".into(), None),
+            KeywordToken::KFalse => ("FALSE", "false".into(), None),
+            KeywordToken::KFor => ("FOR", "for".into(), None),
+            KeywordToken::KFun => ("FUN", "fun".into(), None),
+            KeywordToken::KIf => ("IF", "if".into(), None),
+            KeywordToken::KNil => ("NIL", "nil".into(), None),
+            KeywordToken::KOr => ("OR", "or".into(), None),
+            KeywordToken::KPrint => ("PRINT", "print".into(), None),
+            KeywordToken::KReturn => ("RETURN", "return".into(), None),
+            KeywordToken::KSuper => ("SUPER", "super".into(), None),
+            KeywordToken::KThis => ("THIS", "this".into(), None),
+            KeywordToken::KTrue => ("TRUE", "true".into(), None),
+            KeywordToken::KVar => ("VAR", "var".into(), None),
+            KeywordToken::KWhile => ("WHILE", "while".into(), None),
+        }
+    }
+
+    fn from_char_slice(s: &[char], _: usize) -> AppResult<Option<Self>> {
+        // If better to build a huffman tree, but it is fast enough, I think.
+        let mut it = s.iter();
+        let s0 = it.next();
+        let s1 = it.next();
+        let s2 = it.next();
+        let s3 = it.next();
+        let s4 = it.next();
+        let s5 = it.next();
+
+        let ss = [s0, s1, s2, s3, s4, s5];
+
+        if ss[..3] == [Some(&'a'), Some(&'n'), Some(&'d')] {
+            Ok(Some(Self::KAnd))
+        } else if ss[..5] == [Some(&'c'), Some(&'l'), Some(&'a'), Some(&'s'), Some(&'s')] {
+            Ok(Some(Self::KClass))
+        } else if ss[..4] == [Some(&'e'), Some(&'l'), Some(&'s'), Some(&'e')] {
+            Ok(Some(Self::KElse))
+        } else if ss[..5] == [Some(&'f'), Some(&'a'), Some(&'l'), Some(&'s'), Some(&'e')] {
+            Ok(Some(Self::KFalse))
+        } else if ss[..3] == [Some(&'f'), Some(&'o'), Some(&'r')] {
+            Ok(Some(Self::KFor))
+        } else if ss[..3] == [Some(&'f'), Some(&'u'), Some(&'n')] {
+            Ok(Some(Self::KFun))
+        } else if ss[..2] == [Some(&'i'), Some(&'f')] {
+            Ok(Some(Self::KIf))
+        } else if ss[..3] == [Some(&'n'), Some(&'i'), Some(&'l')] {
+            Ok(Some(Self::KNil))
+        } else if ss[..2] == [Some(&'o'), Some(&'r')] {
+            Ok(Some(Self::KOr))
+        } else if ss[..5] == [Some(&'p'), Some(&'r'), Some(&'i'), Some(&'n'), Some(&'t')] {
+            Ok(Some(Self::KPrint))
+        } else if ss[..6]
+            == [
+                Some(&'r'),
+                Some(&'e'),
+                Some(&'t'),
+                Some(&'u'),
+                Some(&'r'),
+                Some(&'n'),
+            ]
+        {
+            Ok(Some(Self::KReturn))
+        } else if ss[..5] == [Some(&'s'), Some(&'u'), Some(&'p'), Some(&'e'), Some(&'r')] {
+            Ok(Some(Self::KSuper))
+        } else if ss[..4] == [Some(&'t'), Some(&'h'), Some(&'i'), Some(&'s')] {
+            Ok(Some(Self::KThis))
+        } else if ss[..4] == [Some(&'t'), Some(&'r'), Some(&'u'), Some(&'e')] {
+            Ok(Some(Self::KTrue))
+        } else if ss[..3] == [Some(&'v'), Some(&'a'), Some(&'r')] {
+            Ok(Some(Self::KVar))
+        } else if ss[..5] == [Some(&'w'), Some(&'h'), Some(&'i'), Some(&'l'), Some(&'e')] {
+            Ok(Some(Self::KWhile))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn length(&self) -> usize {
+        match self {
+            KeywordToken::KAnd => 3,
+            KeywordToken::KClass => 5,
+            KeywordToken::KElse => 4,
+            KeywordToken::KFalse => 5,
+            KeywordToken::KFor => 3,
+            KeywordToken::KFun => 3,
+            KeywordToken::KIf => 2,
+            KeywordToken::KNil => 3,
+            KeywordToken::KOr => 2,
+            KeywordToken::KPrint => 5,
+            KeywordToken::KReturn => 6,
+            KeywordToken::KSuper => 5,
+            KeywordToken::KThis => 4,
+            KeywordToken::KTrue => 4,
+            KeywordToken::KVar => 3,
+            KeywordToken::KWhile => 5,
+        }
     }
 }

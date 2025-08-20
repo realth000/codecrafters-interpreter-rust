@@ -4,6 +4,8 @@ use crate::errors::AppError;
 pub enum Tokens {
     LeftParen,
     RightParen,
+    LeftBrace,
+    RightBrace,
 }
 
 impl Tokens {
@@ -11,6 +13,8 @@ impl Tokens {
         match self {
             Tokens::LeftParen => ("LEFT_PAREN", "(", None),
             Tokens::RightParen => ("RIGHT_PAREN", ")", None),
+            Tokens::LeftBrace => ("LEFT_BRACE", "{", None),
+            Tokens::RightBrace => ("RIGHT_BRACE", "}", None),
         }
     }
 }
@@ -25,6 +29,8 @@ impl<'a> TryFrom<(&'a char, usize)> for Tokens {
         match value.0 {
             '(' => Ok(Self::LeftParen),
             ')' => Ok(Self::RightParen),
+            '{' => Ok(Self::LeftBrace),
+            '}' => Ok(Self::RightBrace),
             v => Err(AppError::UnknownToken {
                 pos: value.1,
                 token: v.to_string(),

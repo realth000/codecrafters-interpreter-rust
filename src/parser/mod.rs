@@ -187,13 +187,25 @@ impl<'a> Parser<'a> {
                 KeywordToken::KClass => todo!(),
                 KeywordToken::KElse => todo!(),
                 KeywordToken::KFalse | KeywordToken::KTrue => {
-                    if parsed_tokens.last().is_some_and(|x| x.is_unary_op()) {
+                    let mut ops = vec![];
+                    while parsed_tokens.last().is_some_and(|x| x.is_unary_op()) {
                         let op = parsed_tokens.pop().unwrap();
-                        let expr =
-                            Expr::new_unary(UnaryOp::try_from(op).unwrap(), Some(&tokens[0]))?;
-                        return Ok((Some(expr), 1));
+                        let op = UnaryOp::try_from(op).unwrap();
+                        ops.push(op);
                     }
-                    return Ok((Some(Expr::new_value(&tokens[0])?), 1));
+                    if ops.is_empty() {
+                        return Ok((Some(Expr::new_value(&tokens[0])?), 1));
+                    } else {
+                        let mut expr = None;
+                        for op in ops.into_iter().rev() {
+                            expr = match expr {
+                                Some(v) => Some(Expr::new_unary_from_expr(op, v)),
+                                None => Some(Expr::new_unary(op, Some(&tokens[0]))?),
+                            };
+                        }
+
+                        return Ok((expr, 1));
+                    }
                 }
                 KeywordToken::KFor => todo!(),
                 KeywordToken::KFun => todo!(),

@@ -55,6 +55,13 @@ impl Expr {
         })
     }
 
+    pub fn new_unary_from_expr(unary_type: UnaryOp, expr: Expr) -> Self {
+        Expr::Unary {
+            op: unary_type,
+            operand: Box::new(expr),
+        }
+    }
+
     pub fn print_info(&self) {
         println!("{}", self.literal());
     }

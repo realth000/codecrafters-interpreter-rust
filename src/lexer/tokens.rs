@@ -144,6 +144,34 @@ impl Token {
             Token::Keyword(..) => false,
         }
     }
+
+    pub fn is_unary_op(&self) -> bool {
+        match self {
+            Token::SingleCharacter(v) => match v {
+                SingleCharToken::LeftParen => false,
+                SingleCharToken::RightParen => false,
+                SingleCharToken::LeftBrace => false,
+                SingleCharToken::RightBrace => false,
+                SingleCharToken::Star => false,
+                SingleCharToken::Dot => false,
+                SingleCharToken::Comma => false,
+                SingleCharToken::Plus => false,
+                SingleCharToken::Minus => true,
+                SingleCharToken::Slash => false,
+                SingleCharToken::Semicolon => false,
+                SingleCharToken::Assign => false,
+                SingleCharToken::Bang => true,
+                SingleCharToken::Less => false,
+                SingleCharToken::Greater => false,
+            },
+            Token::MultiCharToken(..) => false,
+            Token::Ignored(..) => false,
+            Token::String(..) => false,
+            Token::Number(..) => false,
+            Token::Identifier(..) => false,
+            Token::Keyword(..) => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

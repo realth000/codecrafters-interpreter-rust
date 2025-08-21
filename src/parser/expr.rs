@@ -1,7 +1,7 @@
 use anyhow::{bail, Context};
 
 use crate::errors::AppResult;
-use crate::lexer::{KeywordToken, Token};
+use crate::lexer::{KeywordToken, SingleCharToken, Token};
 
 #[derive(Debug, Clone)]
 pub(super) enum Expr {
@@ -12,6 +12,10 @@ pub(super) enum Expr {
     },
     Value(Value),
     Scope(Scope),
+    Unary {
+        op: UnaryOp,
+        operand: Box<Expr>,
+    },
 }
 
 impl Expr {
@@ -42,6 +46,15 @@ impl Expr {
         }))
     }
 
+    pub fn new_unary<'a>(unary_type: UnaryOp, operand: Option<&'a Token>) -> AppResult<Self> {
+        let operand = operand.context("operand is null")?;
+
+        Ok(Expr::Unary {
+            op: unary_type,
+            operand: Box::new(Expr::new_value(operand)?),
+        })
+    }
+
     pub fn print_info(&self) {
         println!("{}", self.literal());
     }
@@ -53,6 +66,7 @@ impl Expr {
             }
             Expr::Value(v) => v.literal(),
             Expr::Scope(s) => s.literal(),
+            Expr::Unary { op, operand } => format!("({} {})", op.literal(), operand.literal()),
         }
     }
 }
@@ -80,6 +94,38 @@ impl BinaryOp {
             BinaryOp::Minus => "-",
             BinaryOp::Multiply => "*",
             BinaryOp::Divide => "/",
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a Token> for BinaryOp {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &'a Token) -> Result<Self, Self::Error> {
+        match value {
+            Token::SingleCharacter(s) => match s {
+                SingleCharToken::LeftParen
+                | SingleCharToken::RightParen
+                | SingleCharToken::LeftBrace
+                | SingleCharToken::Dot
+                | SingleCharToken::Comma
+                | SingleCharToken::Semicolon
+                | SingleCharToken::Assign
+                | SingleCharToken::Bang
+                | SingleCharToken::RightBrace => unreachable!("check before convert"),
+                SingleCharToken::Star => Ok(BinaryOp::Multiply),
+                SingleCharToken::Plus => Ok(BinaryOp::Plus),
+                SingleCharToken::Minus => Ok(BinaryOp::Minus),
+                SingleCharToken::Slash => Ok(BinaryOp::Divide),
+                SingleCharToken::Less => todo!(),
+                SingleCharToken::Greater => todo!(),
+            },
+            Token::String(..)
+            | Token::Number(..)
+            | Token::Identifier(..)
+            | Token::Keyword(..)
+            | Token::Ignored(..) => unreachable!("check before convert"),
+            Token::MultiCharToken(..) => todo!(),
         }
     }
 }
@@ -170,6 +216,56 @@ impl Scope {
                     .map(|x| x.as_ref().literal())
                     .unwrap_or_else(String::new)
             ),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum UnaryOp {
+    /// `-`
+    Negation,
+
+    /// `!`
+    LogicalNot,
+}
+
+impl UnaryOp {
+    fn literal(&self) -> &'static str {
+        match self {
+            UnaryOp::Negation => "-",
+            UnaryOp::LogicalNot => "!",
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a Token> for UnaryOp {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &'a Token) -> Result<Self, Self::Error> {
+        match value {
+            Token::SingleCharacter(s) => match s {
+                SingleCharToken::LeftParen
+                | SingleCharToken::RightParen
+                | SingleCharToken::LeftBrace
+                | SingleCharToken::RightBrace
+                | SingleCharToken::Star
+                | SingleCharToken::Dot
+                | SingleCharToken::Comma
+                | SingleCharToken::Plus
+                | SingleCharToken::Slash
+                | SingleCharToken::Semicolon
+                | SingleCharToken::Assign
+                | SingleCharToken::Less
+                | SingleCharToken::Greater => unreachable!("check before convert"),
+                SingleCharToken::Minus => Ok(Self::Negation),
+                SingleCharToken::Bang => Ok(Self::LogicalNot),
+            },
+            Token::MultiCharToken(..)
+            | Token::Ignored(..)
+            | Token::String(..)
+            | Token::Number(..)
+            | Token::Identifier(..)
+            | Token::Keyword(..) => unreachable!("check before convert"),
         }
     }
 }

@@ -4,7 +4,7 @@ use crate::lexer::{KeywordToken, SingleCharToken, Token};
 use anyhow::{bail, Ok};
 use expr::Expr;
 
-use self::expr::{BinaryOp, ScopeType};
+use self::expr::{BinaryOp, ScopeType, UnaryOp};
 
 mod expr;
 
@@ -42,8 +42,10 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self) -> AppResult<()> {
+        let mut with_tokens: Option<Vec<&'a Token>> = None;
         while !self.finished() {
-            let step = self.collapse(&self.input[self.begin..])?;
+            let (t, step) = self.collapse(&self.input[self.begin..], with_tokens)?;
+            with_tokens = t;
             if step > 0 {
                 self.begin += step;
             } else if step == 0 {
@@ -72,11 +74,26 @@ impl<'a> Parser<'a> {
         self.pos += step;
     }
 
-    fn collapse(&mut self, tokens: &'a [Token]) -> AppResult<usize> {
-        let mut parse_buf = vec![];
+    fn collapse(
+        &mut self,
+        tokens: &'a [Token],
+        with_tokens: Option<Vec<&'a Token>>,
+    ) -> AppResult<(Option<Vec<&'a Token>>, usize)> {
+        let mut parse_buf = with_tokens.unwrap_or_default();
         let (expr, step) = Self::parse_expr(tokens, &mut parse_buf)?;
-        self.output.push(expr.unwrap());
-        Ok(step)
+        match expr {
+            Some(v) => {
+                self.output.push(v);
+                Ok((None, step))
+            }
+            None => {
+                if parse_buf.is_empty() {
+                    bail!("no expr or token produced when parsing expr")
+                } else {
+                    Ok((Some(parse_buf), step))
+                }
+            }
+        }
     }
 
     fn parse_expr(
@@ -120,7 +137,10 @@ impl<'a> Parser<'a> {
                 SingleCharToken::Slash => todo!(),
                 SingleCharToken::Semicolon => todo!(),
                 SingleCharToken::Assign => todo!(),
-                SingleCharToken::Bang => todo!(),
+                SingleCharToken::Bang => {
+                    parsed_tokens.push(&tokens[0]);
+                    return Ok((None, 1));
+                }
                 SingleCharToken::Less => todo!(),
                 SingleCharToken::Greater => todo!(),
             },
@@ -135,13 +155,20 @@ impl<'a> Parser<'a> {
             Token::String(..) | Token::Number(..) => {
                 match parsed_tokens.last() {
                     Some(v) => {
-                        if v.is_binary_op() {
+                        let lhs = parsed_tokens.iter().rev().nth(1);
+                        // Binary operator needs an valid lhs.
+                        if v.is_binary_op() && lhs.is_some_and(|t| t.is_string_or_number()) {
                             let expr = Expr::new_binary(
-                                BinaryOp::Plus,
-                                parsed_tokens.get(parsed_tokens.len() - 2).map(|x| *x),
+                                BinaryOp::try_from(*v).unwrap(),
+                                lhs.map(|x| *x),
                                 Some(&tokens[0]),
                             )?;
                             parsed_tokens.pop();
+                            parsed_tokens.pop();
+                            return Ok((Some(expr), 1));
+                        } else if v.is_unary_op() {
+                            let expr =
+                                Expr::new_unary(UnaryOp::try_from(*v).unwrap(), Some(&tokens[0]))?;
                             parsed_tokens.pop();
                             return Ok((Some(expr), 1));
                         } else {
@@ -159,7 +186,13 @@ impl<'a> Parser<'a> {
                 KeywordToken::KAnd => todo!(),
                 KeywordToken::KClass => todo!(),
                 KeywordToken::KElse => todo!(),
-                KeywordToken::KFalse => {
+                KeywordToken::KFalse | KeywordToken::KTrue => {
+                    if parsed_tokens.last().is_some_and(|x| x.is_unary_op()) {
+                        let op = parsed_tokens.pop().unwrap();
+                        let expr =
+                            Expr::new_unary(UnaryOp::try_from(op).unwrap(), Some(&tokens[0]))?;
+                        return Ok((Some(expr), 1));
+                    }
                     return Ok((Some(Expr::new_value(&tokens[0])?), 1));
                 }
                 KeywordToken::KFor => todo!(),
@@ -173,9 +206,6 @@ impl<'a> Parser<'a> {
                 KeywordToken::KReturn => todo!(),
                 KeywordToken::KSuper => todo!(),
                 KeywordToken::KThis => todo!(),
-                KeywordToken::KTrue => {
-                    return Ok((Some(Expr::new_value(&tokens[0])?), 1));
-                }
                 KeywordToken::KVar => todo!(),
                 KeywordToken::KWhile => todo!(),
             },

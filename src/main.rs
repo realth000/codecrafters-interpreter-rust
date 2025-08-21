@@ -7,9 +7,11 @@ use anyhow::Ok;
 
 use self::errors::AppResult;
 use self::lexer::Lexer;
+use self::parser::Parser;
 
 mod errors;
 mod lexer;
+mod parser;
 
 fn main() -> AppResult<()> {
     let args: Vec<String> = env::args().collect();
@@ -49,6 +51,21 @@ fn main() -> AppResult<()> {
                     std::process::exit(65);
                 }
             }
+            return Ok(());
+        }
+        "parse" => {
+            let input = fs::read_to_string(filename).context("failed to read file")?;
+            let mut lexer = Lexer::new(input);
+            if let Err(e) = lexer.tokenize() {
+                eprintln!("{}", e);
+                std::process::exit(65);
+            } else if lexer.has_error() {
+                std::process::exit(65);
+            }
+
+            let mut parser = Parser::new(lexer.tokens());
+            parser.parse()?;
+            parser.print_info();
             return Ok(());
         }
         _ => {

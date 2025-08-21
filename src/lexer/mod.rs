@@ -1,8 +1,7 @@
 use crate::errors::{AppError, AppResult};
 
-use self::tokens::{IgnoredToken, Token};
-
 mod tokens;
+pub use tokens::*;
 
 pub struct Lexer {
     /// The input token.
@@ -84,6 +83,10 @@ impl Lexer {
 
     pub fn has_error(&self) -> bool {
         self.has_error
+    }
+
+    pub fn tokens(&self) -> &Vec<Token> {
+        &self.tokens
     }
 
     fn ended(&self) -> bool {

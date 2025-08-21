@@ -11,6 +11,7 @@ pub(super) trait Tokened: Sized {
     fn length(&self) -> usize;
 }
 
+#[derive(Debug, Clone)]
 pub enum Token {
     SingleCharacter(SingleCharToken),
     MultiCharToken(MultiCharToken),
@@ -95,10 +96,58 @@ impl Token {
             Token::Keyword(v) => v.length(),
         }
     }
+
+    pub fn is_string(&self) -> bool {
+        if let Token::String(..) = &self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_number(&self) -> bool {
+        if let Token::Number(..) = &self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_string_or_number(&self) -> bool {
+        self.is_string() || self.is_number()
+    }
+
+    pub fn is_binary_op(&self) -> bool {
+        match self {
+            Token::SingleCharacter(v) => match v {
+                SingleCharToken::LeftParen => false,
+                SingleCharToken::RightParen => false,
+                SingleCharToken::LeftBrace => false,
+                SingleCharToken::RightBrace => false,
+                SingleCharToken::Star => true,
+                SingleCharToken::Dot => false,
+                SingleCharToken::Comma => false,
+                SingleCharToken::Plus => true,
+                SingleCharToken::Minus => true,
+                SingleCharToken::Slash => true,
+                SingleCharToken::Semicolon => false,
+                SingleCharToken::Assign => true,
+                SingleCharToken::Bang => false,
+                SingleCharToken::Less => true,
+                SingleCharToken::Greater => true,
+            },
+            Token::MultiCharToken(..) => true,
+            Token::Ignored(..) => false,
+            Token::String(..) => false,
+            Token::Number(..) => false,
+            Token::Identifier(..) => false,
+            Token::Keyword(..) => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum SingleCharToken {
+pub enum SingleCharToken {
     /// `(`
     LeftParen,
 
@@ -198,7 +247,8 @@ impl Tokened for SingleCharToken {
     }
 }
 
-pub(super) enum IgnoredToken {
+#[derive(Debug, Clone)]
+pub enum IgnoredToken {
     /// `\n`
     LineBreak,
 
@@ -244,7 +294,8 @@ impl Tokened for IgnoredToken {
     }
 }
 
-pub(super) enum MultiCharToken {
+#[derive(Debug, Clone)]
+pub enum MultiCharToken {
     /// `==`
     EqualEqual,
 
@@ -286,7 +337,8 @@ impl Tokened for MultiCharToken {
     }
 }
 
-pub(super) struct StringToken(String);
+#[derive(Debug, Clone)]
+pub struct StringToken(pub String);
 
 impl Tokened for StringToken {
     fn info(&self) -> (&'static str, String, Option<String>) {
@@ -328,7 +380,8 @@ impl Tokened for StringToken {
 ///
 /// * .123 => parse started after the `.`
 /// * 123. => parse finshed before the `.`
-pub(super) struct NumberToken {
+#[derive(Debug, Clone)]
+pub struct NumberToken {
     integer: u32,
 
     /// The length of integer part.
@@ -336,6 +389,19 @@ pub(super) struct NumberToken {
 
     /// The deciaml part contains of the original value `string` and calculated number value `usize`.
     decimal: Option<(String, u32)>,
+}
+
+impl NumberToken {
+    pub fn as_f64(&self) -> f64 {
+        match &self.decimal {
+            Some((l, f)) => self.integer as f64 + (f.to_owned() as f64 / l.len() as f64),
+            None => self.integer as f64,
+        }
+    }
+
+    pub fn info_string(&self) -> String {
+        self.info().2.unwrap()
+    }
 }
 
 impl Tokened for NumberToken {
@@ -436,7 +502,8 @@ impl Tokened for NumberToken {
     }
 }
 
-pub(super) struct IdentifierToken(String);
+#[derive(Debug, Clone)]
+pub struct IdentifierToken(String);
 
 impl Tokened for IdentifierToken {
     fn info(&self) -> (&'static str, String, Option<String>) {
@@ -472,7 +539,8 @@ impl Tokened for IdentifierToken {
     }
 }
 
-pub(super) enum KeywordToken {
+#[derive(Debug, Clone)]
+pub enum KeywordToken {
     /// `and`
     KAnd,
 

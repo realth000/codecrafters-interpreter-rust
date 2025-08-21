@@ -11,7 +11,7 @@ pub(super) trait Tokened: Sized {
     fn length(&self) -> usize;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
     SingleCharacter(SingleCharToken),
     MultiCharToken(MultiCharToken),
@@ -146,7 +146,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SingleCharToken {
     /// `(`
     LeftParen,
@@ -247,7 +247,7 @@ impl Tokened for SingleCharToken {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IgnoredToken {
     /// `\n`
     LineBreak,
@@ -294,7 +294,7 @@ impl Tokened for IgnoredToken {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MultiCharToken {
     /// `==`
     EqualEqual,
@@ -337,7 +337,7 @@ impl Tokened for MultiCharToken {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StringToken(pub String);
 
 impl Tokened for StringToken {
@@ -380,7 +380,7 @@ impl Tokened for StringToken {
 ///
 /// * .123 => parse started after the `.`
 /// * 123. => parse finshed before the `.`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NumberToken {
     integer: u32,
 
@@ -502,7 +502,7 @@ impl Tokened for NumberToken {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IdentifierToken(String);
 
 impl Tokened for IdentifierToken {
@@ -539,7 +539,7 @@ impl Tokened for IdentifierToken {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeywordToken {
     /// `and`
     KAnd,

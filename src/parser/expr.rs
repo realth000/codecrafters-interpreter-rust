@@ -3,6 +3,7 @@ use anyhow::{bail, Context};
 use crate::errors::AppResult;
 use crate::lexer::{KeywordToken, Token};
 
+#[derive(Debug, Clone)]
 pub(super) enum Expr {
     Binary {
         op: BinaryOp,
@@ -10,6 +11,7 @@ pub(super) enum Expr {
         rhs: Box<Expr>,
     },
     Value(Value),
+    Scope(Scope),
 }
 
 impl Expr {
@@ -33,6 +35,13 @@ impl Expr {
         Ok(Expr::Value(Value::try_from(v)?))
     }
 
+    pub fn new_scope(scope_type: ScopeType, expr: Option<Expr>) -> AppResult<Self> {
+        Ok(Expr::Scope(Scope {
+            scope_type,
+            expr: expr.map(Box::new),
+        }))
+    }
+
     pub fn print_info(&self) {
         println!("{}", self.literal());
     }
@@ -43,11 +52,13 @@ impl Expr {
                 format!("({} {} {})", op.literal(), lhs.literal(), rhs.literal())
             }
             Expr::Value(v) => v.literal(),
+            Expr::Scope(s) => s.literal(),
         }
     }
 }
 
 /// Operator that accepts two operands.
+#[derive(Debug, Clone)]
 pub(super) enum BinaryOp {
     /// `lhs + rhs`
     Plus,
@@ -74,6 +85,7 @@ impl BinaryOp {
 }
 
 /// The value evaluating on.
+#[derive(Debug, Clone)]
 pub(super) enum Value {
     /// Number.
     ///
@@ -133,6 +145,31 @@ impl<'a> TryFrom<&'a Token> for Value {
                 KeywordToken::KWhile => todo!(),
             },
             v => bail!("invalid value {v:?}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ScopeType {
+    Paren,
+}
+
+#[derive(Debug, Clone)]
+pub struct Scope {
+    scope_type: ScopeType,
+    expr: Option<Box<Expr>>,
+}
+
+impl Scope {
+    pub fn literal(&self) -> String {
+        match self.scope_type {
+            ScopeType::Paren => format!(
+                "(group {})",
+                self.expr
+                    .as_ref()
+                    .map(|x| x.as_ref().literal())
+                    .unwrap_or_else(String::new)
+            ),
         }
     }
 }

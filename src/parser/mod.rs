@@ -1,12 +1,10 @@
-use std::thread::current;
-
 use crate::errors::AppResult;
 use crate::lexer::{KeywordToken, SingleCharToken, Token};
 
 use anyhow::{bail, Ok};
 use expr::Expr;
 
-use self::expr::BinaryOp;
+use self::expr::{BinaryOp, ScopeType};
 
 mod expr;
 
@@ -45,7 +43,7 @@ impl<'a> Parser<'a> {
 
     pub fn parse(&mut self) -> AppResult<()> {
         while !self.finished() {
-            let step = self.collapse()?;
+            let step = self.collapse(&self.input[self.begin..])?;
             if step > 0 {
                 self.begin += step;
             } else if step == 0 {
@@ -74,24 +72,50 @@ impl<'a> Parser<'a> {
         self.pos += step;
     }
 
-    fn collapse(&mut self) -> AppResult<usize> {
-        let tokens = &self.input[self.begin..];
+    fn collapse(&mut self, tokens: &'a [Token]) -> AppResult<usize> {
+        let mut parse_buf = vec![];
+        let (expr, step) = Self::parse_expr(tokens, &mut parse_buf)?;
+        self.output.push(expr.unwrap());
+        Ok(step)
+    }
+
+    fn parse_expr(
+        tokens: &'a [Token],
+        parsed_tokens: &mut Vec<&'a Token>,
+    ) -> AppResult<(Option<Expr>, usize)> {
         match &tokens[0] {
             Token::SingleCharacter(t) => match t {
-                SingleCharToken::LeftParen => todo!(),
-                SingleCharToken::RightParen => todo!(),
+                SingleCharToken::LeftParen => {
+                    let mut parsed_tokens = vec![];
+                    let (parsed_expr, step) = Self::parse_expr(&tokens[1..], &mut parsed_tokens)?;
+                    if !parsed_tokens.is_empty() {
+                        bail!("token left in paren")
+                    }
+                    match tokens.get(1 + step) {
+                        Some(v) if v == &Token::SingleCharacter(SingleCharToken::RightParen) => {
+                            return Ok((
+                                Some(Expr::new_scope(ScopeType::Paren, parsed_expr)?),
+                                step + 1 + 1,
+                            ));
+                        }
+                        _ => bail!("paren not ended"),
+                    }
+                }
+                SingleCharToken::RightParen => {
+                    return Ok((None, 1));
+                }
                 SingleCharToken::LeftBrace => todo!(),
                 SingleCharToken::RightBrace => todo!(),
                 SingleCharToken::Star => todo!(),
                 SingleCharToken::Dot => todo!(),
                 SingleCharToken::Comma => todo!(),
                 SingleCharToken::Plus => {
-                    self.curr.push(&tokens[0]);
-                    return Ok(1);
+                    parsed_tokens.push(&tokens[0]);
+                    return Ok((None, 1));
                 }
                 SingleCharToken::Minus => {
-                    self.curr.push(&tokens[0]);
-                    return Ok(1);
+                    parsed_tokens.push(&tokens[0]);
+                    return Ok((None, 1));
                 }
                 SingleCharToken::Slash => todo!(),
                 SingleCharToken::Semicolon => todo!(),
@@ -101,32 +125,34 @@ impl<'a> Parser<'a> {
                 SingleCharToken::Greater => todo!(),
             },
             Token::MultiCharToken(..) => {
-                self.curr.push(&tokens[0]);
-                return Ok(1);
+                parsed_tokens.push(&tokens[0]);
+                return Ok((None, 1));
             }
             Token::Ignored(..) => {
                 /* Do nothing */
-                return Ok(1);
+                return Ok((None, 1));
             }
             Token::String(..) | Token::Number(..) => {
-                match self.curr.last() {
+                match parsed_tokens.last() {
                     Some(v) => {
                         if v.is_binary_op() {
-                            self.output.push(Expr::new_binary(
+                            let expr = Expr::new_binary(
                                 BinaryOp::Plus,
-                                self.curr.get(self.curr.len() - 2).map(|x| *x),
+                                parsed_tokens.get(parsed_tokens.len() - 2).map(|x| *x),
                                 Some(&tokens[0]),
-                            )?);
-                            self.curr.pop();
-                            self.curr.pop();
+                            )?;
+                            parsed_tokens.pop();
+                            parsed_tokens.pop();
+                            return Ok((Some(expr), 1));
+                        } else {
+                            bail!("adjacent token before string/number is not BinaryOp")
                         }
                     }
                     None => {
                         /* Do nothing */
-                        self.curr.push(&tokens[0]);
+                        return Ok((Some(Expr::new_value(&tokens[0])?), 1));
                     }
                 }
-                return Ok(1);
             }
             Token::Identifier(identifier_token) => todo!(),
             Token::Keyword(v) => match v {
@@ -134,15 +160,13 @@ impl<'a> Parser<'a> {
                 KeywordToken::KClass => todo!(),
                 KeywordToken::KElse => todo!(),
                 KeywordToken::KFalse => {
-                    self.curr.push(&tokens[0]);
-                    return Ok(1);
+                    return Ok((Some(Expr::new_value(&tokens[0])?), 1));
                 }
                 KeywordToken::KFor => todo!(),
                 KeywordToken::KFun => todo!(),
                 KeywordToken::KIf => todo!(),
                 KeywordToken::KNil => {
-                    self.curr.push(&tokens[0]);
-                    return Ok(1);
+                    return Ok((Some(Expr::new_value(&tokens[0])?), 1));
                 }
                 KeywordToken::KOr => todo!(),
                 KeywordToken::KPrint => todo!(),
@@ -150,8 +174,7 @@ impl<'a> Parser<'a> {
                 KeywordToken::KSuper => todo!(),
                 KeywordToken::KThis => todo!(),
                 KeywordToken::KTrue => {
-                    self.curr.push(&tokens[0]);
-                    return Ok(1);
+                    return Ok((Some(Expr::new_value(&tokens[0])?), 1));
                 }
                 KeywordToken::KVar => todo!(),
                 KeywordToken::KWhile => todo!(),

@@ -25,7 +25,7 @@ impl Expr {
         rhs: Option<&'a Token>,
     ) -> AppResult<Self> {
         let lhs = lhs.context("lhs is null")?;
-        let rhs = rhs.context("lhs is null")?;
+        let rhs = rhs.context("rhs is null")?;
 
         let expr = Expr::Binary {
             op,

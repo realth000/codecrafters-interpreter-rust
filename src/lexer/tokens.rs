@@ -441,7 +441,17 @@ impl Tokened for NumberToken {
         }
 
         let r = match &self.decimal {
-            Some(v) => format!("{}.{}", self.integer, v.1),
+            Some(v) => {
+                if v.1 == 0 {
+                    format!("{}.{}", self.integer, v.1)
+                } else {
+                    format!(
+                        "{}.{}",
+                        self.integer,
+                        v.1.to_string().trim_end_matches(['0'])
+                    )
+                }
+            }
             None => format!("{}.0", self.integer),
         };
 

@@ -138,8 +138,22 @@ impl<'a> Parser<'a> {
                 SingleCharToken::Semicolon => todo!(),
                 SingleCharToken::Assign => todo!(),
                 SingleCharToken::Bang => {
-                    parsed_tokens.push(&tokens[0]);
-                    return Ok((None, 1));
+                    let bang = UnaryOp::LogicalNot;
+                    let mut parsed_tokens = vec![];
+                    let (expr, step) = Self::parse_expr(&tokens[1..], &mut parsed_tokens)?;
+                    if !parsed_tokens.is_empty() {
+                        bail!("token left after '!' unary op: {:?}", parsed_tokens);
+                    }
+                    match expr {
+                        Some(v) => Ok((
+                            Some(Expr::Unary {
+                                op: bang,
+                                operand: Box::new(v),
+                            }),
+                            1 + step,
+                        )),
+                        None => bail!("empty expr after bang"),
+                    }
                 }
                 SingleCharToken::Less => todo!(),
                 SingleCharToken::Greater => todo!(),
@@ -181,7 +195,7 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            Token::Identifier(identifier_token) => todo!(),
+            Token::Identifier(..) => todo!(),
             Token::Keyword(v) => match v {
                 KeywordToken::KAnd => todo!(),
                 KeywordToken::KClass => todo!(),
